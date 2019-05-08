@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=7.1.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=7.1.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=7.1.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=7.1.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=7.1.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '7.1.0',
+    sidebar: {"position":"left","display":"post","offset":12,"onmobile":false,"dimmer":false},
+    back2top: true,
+    back2top_sidebar: true,
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="&amp;emsp; &amp;emsp;最近在实现一个简单的审批功能，涉及到一些事务的处理。一个管控台项目，我使用的是最简单的三层架构。使用的是Ado.net操作数据库。先看一段我们经常用到的事务代码：123456789101112131415SqlConnection con = new Sqlconnection(&quot;数据库连接语句&quot;);con.Open();var trans = con.BeginTran">
+<meta property="og:type" content="article">
+<meta property="og:title" content="将Ado.net中的事务抽离到业务层">
+<meta property="og:url" content="https://linkypi.github.io/C-AOP/基于Ado.Net实现声明式事务/index.html">
+<meta property="og:site_name" content="Leo じゆう">
+<meta property="og:description" content="&amp;emsp; &amp;emsp;最近在实现一个简单的审批功能，涉及到一些事务的处理。一个管控台项目，我使用的是最简单的三层架构。使用的是Ado.net操作数据库。先看一段我们经常用到的事务代码：123456789101112131415SqlConnection con = new Sqlconnection(&quot;数据库连接语句&quot;);con.Open();var trans = con.BeginTran">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-05-07T13:21:41.133Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="将Ado.net中的事务抽离到业务层">
+<meta name="twitter:description" content="&amp;emsp; &amp;emsp;最近在实现一个简单的审批功能，涉及到一些事务的处理。一个管控台项目，我使用的是最简单的三层架构。使用的是Ado.net操作数据库。先看一段我们经常用到的事务代码：123456789101112131415SqlConnection con = new Sqlconnection(&quot;数据库连接语句&quot;);con.Open();var trans = con.BeginTran">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="Leo じゆう" type="application/atom+xml">
+
+
+
+  
+  
+  <link rel="canonical" href="https://linkypi.github.io/C-AOP/基于Ado.Net实现声明式事务/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>将Ado.net中的事务抽离到业务层 | Leo じゆう</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+    <!--fork me -->
+    <a href="https://github.com/linkypi"><img width="149" height="149" src="https://github.blog/wp-content/uploads/2008/12/forkme_right_red_aa0000.png?resize=149%2C149" class="attachment-full size-full" alt="Fork me on GitHub" data-recalc-dims="1"></a>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Leo じゆう</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <p class="site-subtitle">码农Leo</p>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-categories" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://linkypi.github.io/C-AOP/基于Ado.Net实现声明式事务/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Leo Lin">
+      <meta itemprop="description" content="热衷于研究底层技术">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Leo じゆう">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">将Ado.net中的事务抽离到业务层
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2017-06-02 00:00:00" itemprop="dateCreated datePublished" datetime="2017-06-02T00:00:00+08:00">2017-06-02</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019-05-07 21:21:41" itemprop="dateModified" datetime="2019-05-07T21:21:41+08:00">2019-05-07</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/C-AOP/" itemprop="url" rel="index"><span itemprop="name">C# AOP</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+            
+              
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+            
+                <span class="post-meta-item-text">评论数：</span>
+                <a href="/C-AOP/基于Ado.Net实现声明式事务/#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count valine-comment-count" data-xid="/C-AOP/基于Ado.Net实现声明式事务/" itemprop="commentCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>&emsp; &emsp;最近在实现一个简单的审批功能，涉及到一些事务的处理。一个管控台项目，我使用的是最简单的三层架构。使用的是Ado.net操作数据库。先看一段我们经常用到的事务代码：<br><figure class="highlight cs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">SqlConnection con = <span class="keyword">new</span> Sqlconnection(<span class="string">"数据库连接语句"</span>);</span><br><span class="line">con.Open();</span><br><span class="line"><span class="keyword">var</span> trans = con.BeginTransaction();</span><br><span class="line"><span class="keyword">try</span></span><br><span class="line">&#123;</span><br><span class="line">     SqlCommand com = <span class="keyword">new</span> SqlCommand(trans);</span><br><span class="line">     <span class="comment">//处理插入或更新逻辑</span></span><br><span class="line">     trans.Commit();</span><br><span class="line">&#125;<span class="keyword">catch</span>(ex)&#123;</span><br><span class="line">     trans.Rollback();<span class="comment">//如果前面有异常则事务回滚</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">finally</span></span><br><span class="line">&#123;</span><br><span class="line">     con.Close();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p> &emsp; &emsp;我一直以来都是使用下面这种方式在Dao来处理事务，其实怎么看都觉得他别扭，就拿我做的审批功能来说，当前审批人通过之后需要生成一条审批记录（记作表ApprovalHistory），同时将当前申请单的当前审批人指向下一个处理者(记作Apply)，而一般的三层架构都会有自身的Service层，理想的情况应该是在Service层用事务来处理相应的逻辑。<br>       正常的处理逻辑应该是将事务提取出来，应用层不应该过多的去关心底层的实现。乱糟糟的代码写在一起分层感觉也没啥意思了。如果可以像Spring那样使用Annotation的方式就一行代码来实现事务这样不是很好吗。这个问题确实想了挺久，后来有位boss和我说了下他的实现，喜出望外！先贴贴代码实现</p>
+<h4 id="Boss的实现"><a href="#Boss的实现" class="headerlink" title="Boss的实现"></a><strong>Boss的实现</strong></h4><figure class="highlight cs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br><span class="line">222</span><br><span class="line">223</span><br><span class="line">224</span><br><span class="line">225</span><br><span class="line">226</span><br><span class="line">227</span><br><span class="line">228</span><br><span class="line">229</span><br><span class="line">230</span><br><span class="line">231</span><br><span class="line">232</span><br><span class="line">233</span><br><span class="line">234</span><br><span class="line">235</span><br><span class="line">236</span><br><span class="line">237</span><br><span class="line">238</span><br><span class="line">239</span><br><span class="line">240</span><br><span class="line">241</span><br><span class="line">242</span><br><span class="line">243</span><br><span class="line">244</span><br><span class="line">245</span><br><span class="line">246</span><br><span class="line">247</span><br><span class="line">248</span><br><span class="line">249</span><br><span class="line">250</span><br><span class="line">251</span><br><span class="line">252</span><br><span class="line">253</span><br><span class="line">254</span><br><span class="line">255</span><br><span class="line">256</span><br><span class="line">257</span><br><span class="line">258</span><br><span class="line">259</span><br><span class="line">260</span><br><span class="line">261</span><br><span class="line">262</span><br><span class="line">263</span><br><span class="line">264</span><br><span class="line">265</span><br><span class="line">266</span><br><span class="line">267</span><br><span class="line">268</span><br><span class="line">269</span><br><span class="line">270</span><br><span class="line">271</span><br><span class="line">272</span><br><span class="line">273</span><br><span class="line">274</span><br><span class="line">275</span><br><span class="line">276</span><br><span class="line">277</span><br><span class="line">278</span><br><span class="line">279</span><br><span class="line">280</span><br><span class="line">281</span><br><span class="line">282</span><br><span class="line">283</span><br><span class="line">284</span><br><span class="line">285</span><br><span class="line">286</span><br><span class="line">287</span><br><span class="line">288</span><br><span class="line">289</span><br><span class="line">290</span><br><span class="line">291</span><br><span class="line">292</span><br><span class="line">293</span><br><span class="line">294</span><br><span class="line">295</span><br><span class="line">296</span><br><span class="line">297</span><br><span class="line">298</span><br><span class="line">299</span><br><span class="line">300</span><br><span class="line">301</span><br><span class="line">302</span><br><span class="line">303</span><br><span class="line">304</span><br><span class="line">305</span><br><span class="line">306</span><br><span class="line">307</span><br><span class="line">308</span><br><span class="line">309</span><br><span class="line">310</span><br><span class="line">311</span><br><span class="line">312</span><br><span class="line">313</span><br><span class="line">314</span><br><span class="line">315</span><br><span class="line">316</span><br><span class="line">317</span><br><span class="line">318</span><br><span class="line">319</span><br><span class="line">320</span><br><span class="line">321</span><br><span class="line">322</span><br><span class="line">323</span><br><span class="line">324</span><br><span class="line">325</span><br><span class="line">326</span><br><span class="line">327</span><br><span class="line">328</span><br><span class="line">329</span><br><span class="line">330</span><br><span class="line">331</span><br><span class="line">332</span><br><span class="line">333</span><br><span class="line">334</span><br><span class="line">335</span><br><span class="line">336</span><br><span class="line">337</span><br><span class="line">338</span><br><span class="line">339</span><br><span class="line">340</span><br><span class="line">341</span><br><span class="line">342</span><br><span class="line">343</span><br><span class="line">344</span><br><span class="line">345</span><br><span class="line">346</span><br><span class="line">347</span><br><span class="line">348</span><br><span class="line">349</span><br><span class="line">350</span><br><span class="line">351</span><br><span class="line">352</span><br><span class="line">353</span><br><span class="line">354</span><br><span class="line">355</span><br><span class="line">356</span><br><span class="line">357</span><br><span class="line">358</span><br><span class="line">359</span><br><span class="line">360</span><br></pre></td><td class="code"><pre><span class="line">   <span class="keyword">public</span> <span class="keyword">class</span> <span class="title">ConnId</span></span><br><span class="line">   &#123;</span><br><span class="line">       <span class="keyword">private</span> <span class="keyword">int</span> mConnId = <span class="number">0</span>;</span><br><span class="line">       <span class="keyword">private</span> DateTime mCreateTime = DateTime.Now;</span><br><span class="line">                </span><br><span class="line">       <span class="keyword">public</span> <span class="keyword">int</span> MConnId</span><br><span class="line">       &#123;</span><br><span class="line">           <span class="keyword">get</span> &#123; <span class="keyword">return</span> <span class="keyword">this</span>.mConnId; &#125;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="function"><span class="keyword">public</span> <span class="title">ConnId</span>(<span class="params"><span class="keyword">int</span> connid</span>)</span></span><br><span class="line"><span class="function"></span>       &#123;</span><br><span class="line">           <span class="keyword">this</span>.mConnId = connid;</span><br><span class="line">       &#125;</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="keyword">public</span> <span class="keyword">class</span> <span class="title">DbConnection</span></span><br><span class="line">&#123;</span><br><span class="line">       <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">readonly</span> <span class="keyword">string</span> sConnStr = <span class="string">"从配置中读取连接字符串"</span>;</span><br><span class="line">       <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">readonly</span> <span class="keyword">long</span> MAX_LAST_TIME_LEN = <span class="number">10</span> * <span class="number">1000</span> * <span class="number">1000</span> * <span class="number">60</span>; </span><br><span class="line"></span><br><span class="line">       <span class="keyword">private</span> ConnId mConnId = <span class="literal">null</span>;</span><br><span class="line">       <span class="keyword">private</span> SqlConnection mConn = <span class="literal">null</span>;</span><br><span class="line">       <span class="keyword">private</span> SqlCommand mSqlCmd= <span class="literal">null</span>;</span><br><span class="line">       <span class="keyword">private</span> DateTime mCreateTime = DateTime.Now;</span><br><span class="line">       <span class="keyword">private</span> <span class="keyword">string</span> mTransName = <span class="string">""</span>;</span><br><span class="line"></span><br><span class="line">       <span class="keyword">public</span> ConnId MConnId</span><br><span class="line">       &#123;</span><br><span class="line">           <span class="keyword">get</span> &#123; <span class="keyword">return</span> <span class="keyword">this</span>.mConnId; &#125;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="keyword">public</span> SqlConnection Connection</span><br><span class="line">       &#123;</span><br><span class="line">           <span class="keyword">get</span> &#123; <span class="keyword">return</span> <span class="keyword">this</span>.mConn; &#125;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="keyword">public</span> SqlCommand SqlCmd</span><br><span class="line">       &#123;</span><br><span class="line">           <span class="keyword">get</span> &#123; <span class="keyword">return</span> <span class="keyword">this</span>.mSqlCmd; &#125;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="keyword">public</span> ConnectionState State</span><br><span class="line">       &#123;</span><br><span class="line">           <span class="keyword">get</span></span><br><span class="line">           &#123;</span><br><span class="line">               <span class="keyword">if</span> (mConn == <span class="literal">null</span>)</span><br><span class="line">               &#123;</span><br><span class="line">                   <span class="keyword">return</span> ConnectionState.Broken;</span><br><span class="line">               &#125;</span><br><span class="line">               <span class="keyword">else</span></span><br><span class="line">               &#123;</span><br><span class="line">                   <span class="keyword">return</span> mConn.State;</span><br><span class="line">               &#125;</span><br><span class="line">           &#125;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="function"><span class="keyword">public</span> <span class="title">DbConnection</span>(<span class="params"></span>)</span></span><br><span class="line"><span class="function"></span>       &#123;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="function"><span class="keyword">internal</span> ConnId <span class="title">ConnOpen</span>(<span class="params">HttpRequest request</span>)</span></span><br><span class="line"><span class="function"></span>       &#123;</span><br><span class="line">           <span class="keyword">try</span></span><br><span class="line">           &#123;</span><br><span class="line">               <span class="keyword">this</span>.mConn = <span class="keyword">new</span> SqlConnection(sConnStr);</span><br><span class="line">               <span class="keyword">this</span>.mSqlCmd = <span class="keyword">new</span> SqlCommand();</span><br><span class="line">               mSqlCmd.Connection = <span class="keyword">this</span>.mConn;</span><br><span class="line">               <span class="keyword">this</span>.mConnId = <span class="keyword">new</span> ConnId(<span class="keyword">this</span>.GetHashCode());</span><br><span class="line">               mConn.Open();</span><br><span class="line">               <span class="keyword">if</span> (request == <span class="literal">null</span>)</span><br><span class="line">               &#123;</span><br><span class="line">                   mTransName = <span class="string">"null"</span>;</span><br><span class="line">               &#125;</span><br><span class="line">               <span class="keyword">else</span></span><br><span class="line">               &#123;</span><br><span class="line">                   mTransName = GetSrcFileName(request);</span><br><span class="line">               &#125;</span><br><span class="line">               mSqlCmd.Transaction =</span><br><span class="line">                   mConn.BeginTransaction(System.Data.IsolationLevel.ReadCommitted,</span><br><span class="line">                   mTransName);</span><br><span class="line">               <span class="comment">//log</span></span><br><span class="line"></span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">catch</span> (Exception e)</span><br><span class="line">           &#123;</span><br><span class="line">               <span class="comment">//log</span></span><br><span class="line">               <span class="keyword">if</span> (<span class="keyword">this</span>.mConn.State != System.Data.ConnectionState.Closed)</span><br><span class="line">               &#123;</span><br><span class="line">                   <span class="keyword">this</span>.mConn.Close();</span><br><span class="line">                   <span class="keyword">this</span>.mConn.Dispose();</span><br><span class="line">               &#125;</span><br><span class="line">               <span class="keyword">this</span>.mConnId = <span class="literal">null</span>;</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">return</span> <span class="keyword">this</span>.mConnId;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="function"><span class="keyword">internal</span> ConnId <span class="title">ConnOpen</span>(<span class="params"><span class="keyword">string</span> src</span>)</span></span><br><span class="line"><span class="function"></span>       &#123;</span><br><span class="line">           <span class="keyword">try</span></span><br><span class="line">           &#123;</span><br><span class="line">               <span class="keyword">this</span>.mConn = <span class="keyword">new</span> SqlConnection(sConnStr);</span><br><span class="line">               <span class="keyword">this</span>.mSqlCmd = <span class="keyword">new</span> SqlCommand();</span><br><span class="line">               mSqlCmd.Connection = <span class="keyword">this</span>.mConn;</span><br><span class="line">               <span class="keyword">this</span>.mConnId = <span class="keyword">new</span> ConnId(<span class="keyword">this</span>.GetHashCode());</span><br><span class="line">               mConn.Open();</span><br><span class="line">               mTransName = src;</span><br><span class="line">               mSqlCmd.Transaction =</span><br><span class="line">                   mConn.BeginTransaction(System.Data.IsolationLevel.ReadCommitted,</span><br><span class="line">                   mTransName);</span><br><span class="line">               <span class="comment">//log</span></span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">catch</span> (Exception e)</span><br><span class="line">           &#123;</span><br><span class="line">               <span class="comment">//log</span></span><br><span class="line">               <span class="keyword">if</span> (<span class="keyword">this</span>.mConn.State != System.Data.ConnectionState.Closed)</span><br><span class="line">               &#123;</span><br><span class="line">                   <span class="keyword">this</span>.mConn.Close();</span><br><span class="line">                   <span class="keyword">this</span>.mConn.Dispose();</span><br><span class="line">               &#125;</span><br><span class="line">               <span class="keyword">this</span>.mConnId = <span class="literal">null</span>;</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">return</span> <span class="keyword">this</span>.mConnId;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="function"><span class="keyword">internal</span> Exception <span class="title">Cancel</span>(<span class="params"></span>)</span></span><br><span class="line"><span class="function"></span>       &#123;</span><br><span class="line">           Exception ex = <span class="literal">null</span>;</span><br><span class="line">           <span class="keyword">try</span></span><br><span class="line">           &#123;</span><br><span class="line">               <span class="comment">//log</span></span><br><span class="line">               mSqlCmd.Transaction.Rollback();</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">catch</span> (Exception e)</span><br><span class="line">           &#123;</span><br><span class="line">               <span class="comment">//log</span></span><br><span class="line">               mSqlCmd.Transaction.Rollback();</span><br><span class="line">               ex = e;</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">finally</span></span><br><span class="line">           &#123;</span><br><span class="line">               <span class="keyword">if</span> (mSqlCmd != <span class="literal">null</span>)</span><br><span class="line">               &#123;</span><br><span class="line">                   <span class="keyword">this</span>.mSqlCmd.Dispose();</span><br><span class="line">               &#125;</span><br><span class="line">               <span class="keyword">if</span> (<span class="keyword">this</span>.mConn.State != System.Data.ConnectionState.Closed)</span><br><span class="line">               &#123;</span><br><span class="line">                   <span class="keyword">this</span>.mConn.Close();</span><br><span class="line">               &#125;</span><br><span class="line"></span><br><span class="line">               memberClear();</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">return</span> ex;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="function"><span class="keyword">internal</span> Exception <span class="title">Close</span>(<span class="params"></span>)</span></span><br><span class="line"><span class="function"></span>       &#123;</span><br><span class="line">           Exception ex = <span class="literal">null</span>;</span><br><span class="line">           <span class="keyword">try</span></span><br><span class="line">           &#123;</span><br><span class="line">               <span class="comment">//log</span></span><br><span class="line">               mSqlCmd.Transaction.Commit();</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">catch</span> (Exception e)</span><br><span class="line">           &#123;</span><br><span class="line">               <span class="comment">//log</span></span><br><span class="line">               mSqlCmd.Transaction.Rollback();</span><br><span class="line">               ex = e;</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">finally</span></span><br><span class="line">           &#123;</span><br><span class="line">               <span class="keyword">if</span> (mSqlCmd != <span class="literal">null</span>)</span><br><span class="line">               &#123;</span><br><span class="line">                   <span class="keyword">this</span>.mSqlCmd.Dispose();</span><br><span class="line">               &#125;</span><br><span class="line">               <span class="keyword">if</span> (<span class="keyword">this</span>.mConn.State != System.Data.ConnectionState.Closed)</span><br><span class="line">               &#123;</span><br><span class="line">                   <span class="keyword">this</span>.mConn.Close();</span><br><span class="line">                   <span class="keyword">this</span>.mConn.Dispose();</span><br><span class="line">               &#125;</span><br><span class="line"></span><br><span class="line">               memberClear();</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">return</span> ex;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="function"><span class="keyword">internal</span> <span class="keyword">bool</span> <span class="title">IfExpried</span>(<span class="params"></span>)</span></span><br><span class="line"><span class="function"></span>       &#123;</span><br><span class="line">           <span class="keyword">if</span> (mConnId != <span class="literal">null</span>)</span><br><span class="line">           &#123;</span><br><span class="line">               <span class="keyword">if</span> (mCreateTime != DateTime.MinValue)</span><br><span class="line">               &#123;</span><br><span class="line">                   DateTime now = DateTime.Now;</span><br><span class="line">                   <span class="keyword">if</span> (now.Ticks - <span class="keyword">this</span>.mCreateTime.Ticks &gt; MAX_LAST_TIME_LEN)</span><br><span class="line">                   &#123;</span><br><span class="line">                       <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">                   &#125;</span><br><span class="line">               &#125;</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">memberClear</span>(<span class="params"></span>)</span></span><br><span class="line"><span class="function"></span>       &#123;</span><br><span class="line">           mConnId = <span class="literal">null</span>;</span><br><span class="line">           mConn = <span class="literal">null</span>;</span><br><span class="line">           mSqlCmd= <span class="literal">null</span>;</span><br><span class="line">           mCreateTime = DateTime.MinValue;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="function"><span class="keyword">private</span> <span class="keyword">string</span> <span class="title">GetSrcFileName</span>(<span class="params">HttpRequest r</span>)</span></span><br><span class="line"><span class="function"></span>       &#123;</span><br><span class="line">           FileInfo fi = <span class="keyword">new</span> FileInfo(r.PhysicalPath);</span><br><span class="line">           <span class="keyword">string</span> filename = fi.Name.Replace(fi.Extension, <span class="string">""</span>);</span><br><span class="line">           <span class="keyword">if</span> (filename.Length &gt; <span class="number">32</span>)</span><br><span class="line">           &#123;</span><br><span class="line">               filename = filename.Substring(filename.Length - <span class="number">32</span>, <span class="number">32</span>);</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">return</span> filename;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="function"><span class="keyword">private</span> <span class="keyword">string</span> <span class="title">GetSrcFileName</span>(<span class="params"><span class="keyword">string</span> src</span>)</span></span><br><span class="line"><span class="function"></span>       &#123;</span><br><span class="line">           <span class="keyword">return</span> src.Substring(src.Length - <span class="number">32</span>, <span class="number">32</span>);</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="function"><span class="keyword">private</span> <span class="keyword">string</span> <span class="title">GetShortTime</span>(<span class="params">DateTime t</span>)</span></span><br><span class="line"><span class="function"></span>       &#123;</span><br><span class="line">           <span class="keyword">string</span> str = t.Day.ToString() + <span class="string">"_"</span> + t.Hour.ToString() + <span class="string">":"</span> +</span><br><span class="line">               t.Minute.ToString() + <span class="string">":"</span> + t.Second.ToString();</span><br><span class="line">           <span class="keyword">return</span> str;</span><br><span class="line">       &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">   <span class="keyword">public</span> <span class="keyword">class</span> <span class="title">ConnPool</span></span><br><span class="line">&#123;</span><br><span class="line">       <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">readonly</span> <span class="keyword">object</span> sLocker = <span class="keyword">new</span> <span class="keyword">object</span>();</span><br><span class="line">       <span class="keyword">private</span> <span class="keyword">static</span> Dictionary&lt;ConnId, DbConnection&gt; sConnList = <span class="keyword">new</span> Dictionary&lt;ConnId, DbConnection&gt;(MAX_CONCURRENT_CONN_COUNT);</span><br><span class="line">       <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">readonly</span> <span class="keyword">int</span> MAX_CONCURRENT_CONN_COUNT = <span class="number">1000</span>;</span><br><span class="line"></span><br><span class="line">       <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> sCount</span><br><span class="line">       &#123;</span><br><span class="line">           <span class="keyword">get</span> &#123; <span class="keyword">return</span> sConnList.Keys.Count; &#125;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> ConnId <span class="title">CreateConn</span>(<span class="params">HttpRequest request</span>)</span></span><br><span class="line"><span class="function"></span>       &#123;</span><br><span class="line">           DbConnection dbconn = <span class="literal">null</span>;</span><br><span class="line">           ConnId key = <span class="literal">null</span>;</span><br><span class="line">           <span class="keyword">try</span></span><br><span class="line">           &#123;</span><br><span class="line">               dbconn = <span class="keyword">new</span> DbConnection();</span><br><span class="line">               key = dbconn.ConnOpen(request);</span><br><span class="line">               <span class="keyword">if</span> (sConnList.ContainsKey(key))</span><br><span class="line">               &#123;</span><br><span class="line">                   <span class="keyword">return</span> key;</span><br><span class="line">               &#125;</span><br><span class="line">               <span class="keyword">if</span> (sCount &lt; MAX_CONCURRENT_CONN_COUNT)</span><br><span class="line">               &#123;</span><br><span class="line">                   <span class="keyword">lock</span> (sLocker)</span><br><span class="line">                   &#123;</span><br><span class="line">                       <span class="keyword">if</span> (sCount &lt; MAX_CONCURRENT_CONN_COUNT)</span><br><span class="line">                       &#123;</span><br><span class="line">                           sConnList.Add(key, dbconn);</span><br><span class="line">                       &#125;</span><br><span class="line">                       <span class="keyword">else</span></span><br><span class="line">                       &#123;</span><br><span class="line">                          <span class="comment">//log</span></span><br><span class="line">                       &#125;</span><br><span class="line">                   &#125;</span><br><span class="line">               &#125;</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">catch</span> (Exception e)</span><br><span class="line">           &#123;</span><br><span class="line">               <span class="comment">//log</span></span><br><span class="line">               key = <span class="literal">null</span>;</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">return</span> key;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> ConnId <span class="title">CreateConn</span>(<span class="params"><span class="keyword">string</span> src</span>)</span></span><br><span class="line"><span class="function"></span>       &#123;</span><br><span class="line">           DbConnection dbconn = <span class="literal">null</span>;</span><br><span class="line">           ConnId key = <span class="literal">null</span>;</span><br><span class="line">           <span class="keyword">try</span></span><br><span class="line">           &#123;</span><br><span class="line">               dbconn = <span class="keyword">new</span> DbConnection();</span><br><span class="line">               key = dbconn.ConnOpen(src);</span><br><span class="line">               <span class="keyword">if</span> (sCount &lt; MAX_CONCURRENT_CONN_COUNT)</span><br><span class="line">               &#123;</span><br><span class="line">                   <span class="keyword">lock</span> (sLocker)</span><br><span class="line">                   &#123;</span><br><span class="line">                       <span class="keyword">if</span> (sCount &lt; MAX_CONCURRENT_CONN_COUNT)</span><br><span class="line">                       &#123;</span><br><span class="line">                           sConnList.Add(key, dbconn);</span><br><span class="line">                       &#125;</span><br><span class="line">                       <span class="keyword">else</span></span><br><span class="line">                       &#123;</span><br><span class="line">                           <span class="comment">//log</span></span><br><span class="line">                       &#125;</span><br><span class="line">                   &#125;</span><br><span class="line">               &#125;</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">catch</span> (Exception e)</span><br><span class="line">           &#123;</span><br><span class="line">               <span class="comment">//log</span></span><br><span class="line">               key = <span class="literal">null</span>;</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">return</span> key;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> <span class="title">ReleaseConn</span>(<span class="params">ConnId connid</span>)</span></span><br><span class="line"><span class="function"></span>       &#123;</span><br><span class="line">           DbConnection conn = <span class="literal">null</span>;</span><br><span class="line">           <span class="keyword">try</span></span><br><span class="line">           &#123;</span><br><span class="line">               <span class="keyword">lock</span> (sLocker)</span><br><span class="line">               &#123;</span><br><span class="line">                   conn = sConnList[connid];</span><br><span class="line">                   sConnList.Remove(connid);</span><br><span class="line">               &#125;</span><br><span class="line">               <span class="keyword">if</span> (conn != <span class="literal">null</span>)</span><br><span class="line">               &#123;</span><br><span class="line">                   conn.Close();</span><br><span class="line">               &#125;</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">catch</span> (Exception e)</span><br><span class="line">           &#123;</span><br><span class="line">               <span class="comment">//log</span></span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> <span class="title">CancelConn</span>(<span class="params">ConnId connid</span>)</span></span><br><span class="line"><span class="function"></span>       &#123;</span><br><span class="line">           DbConnection conn = <span class="literal">null</span>;</span><br><span class="line">           <span class="keyword">try</span></span><br><span class="line">           &#123;</span><br><span class="line">               <span class="keyword">lock</span> (sLocker)</span><br><span class="line">               &#123;</span><br><span class="line">                   conn = sConnList[connid];</span><br><span class="line">                   sConnList.Remove(connid);</span><br><span class="line">               &#125;</span><br><span class="line">               <span class="keyword">if</span> (conn != <span class="literal">null</span>)</span><br><span class="line">               &#123;</span><br><span class="line">                   conn.Cancel();</span><br><span class="line">               &#125;</span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">catch</span> (Exception e)</span><br><span class="line">           &#123;</span><br><span class="line">               <span class="comment">//log</span></span><br><span class="line">           &#125;</span><br><span class="line">           <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">       &#125;</span><br><span class="line"></span><br><span class="line">       <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> DbConnection <span class="title">GetDbConn</span>(<span class="params">ConnId connid</span>)</span></span><br><span class="line"><span class="function"></span>       &#123;</span><br><span class="line">           <span class="keyword">return</span> sConnList[connid];</span><br><span class="line">       &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>  然后使用的时候呢就像这样就可以：<br><figure class="highlight cs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">namespace</span> <span class="title">MyTest</span></span><br><span class="line">&#123;</span><br><span class="line"> <span class="keyword">class</span> <span class="title">Program</span></span><br><span class="line"> &#123;</span><br><span class="line">     <span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">Main</span>(<span class="params"><span class="keyword">string</span>[] args</span>)</span></span><br><span class="line"><span class="function"></span>     &#123;</span><br><span class="line">         ConnId conn = ConnPool.CreateConn(<span class="string">"123"</span>);</span><br><span class="line">         <span class="keyword">try</span></span><br><span class="line">         &#123;</span><br><span class="line">             <span class="keyword">var</span> aservice = <span class="keyword">new</span> ApplyService();</span><br><span class="line">             <span class="keyword">var</span> historyService = <span class="keyword">new</span> ApprovalHistoryService();</span><br><span class="line">             aservice.Update(<span class="keyword">new</span> <span class="keyword">object</span>(), conn);</span><br><span class="line">             historyService.Insert(<span class="keyword">new</span> <span class="keyword">object</span>(), conn);</span><br><span class="line">	</span><br><span class="line">             ConnPool.ReleaseConn(conn);</span><br><span class="line">         &#125;</span><br><span class="line">         <span class="keyword">catch</span> (Exception ex)</span><br><span class="line">         &#123;</span><br><span class="line">             ConnPool.CancelConn(conn);</span><br><span class="line">         &#125;</span><br><span class="line">     &#125;</span><br><span class="line"> &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p> &emsp; &emsp;可以看到这里主要是在ConnPool中使用一个Dictionary加双重检查锁定来实现一个并发连接的处理，用于记录当前的数据库连接。而到执行Insert和Update时他就通过connid在ConnPool中取出对应事务中的SqlCommand来执行相应的Sql 。也就是说他将数据库连接及事务抽离，放到了一个ConnPool中管理。基本符合我预期。</p>
+<h4 id="问题来了"><a href="#问题来了" class="headerlink" title="问题来了"></a><strong>问题来了</strong></h4><p>  &emsp; &emsp;如果认真看着里面的实现大家应该会发现这里存在一些问题。</p>
+<h6 id="1-并发字典的实现"><a href="#1-并发字典的实现" class="headerlink" title="1 并发字典的实现"></a><strong>1 并发字典的实现</strong></h6><p>   &emsp; &emsp;头一个我想到的就是双重检查锁定的问题，虽然老总说他们用了那么久一直没有什么问题，但我想说那是因为并发量不大所以没有发现问题，并发量大的情况下使用lock的性能是明显下降的，这就让我想起了Java中从HashMap 到 HashTable 再到 ConcurrentHashMap的转变。HashMap是非线程安全类，所以用在多线程环境下就很可能出现意想不到的结果。所以才有了HashTable，我印象当中HashTale的实现是在HashMap的基础上为每个方法加了synchronized关键字，所以每次Add或Remove都会锁住整个内部的数组，可以想象一下在多线程环境下这里面的操作会有多慢。所以才有了ConcurrentHashMap的实现，其内部使用的是可重入锁，而锁住的是每一个segment段而不是整个数组。更重要的是锁的实现（基础框架是队列同步器AbstractQueuedSynchronizer），追究到最底层实现是使用CAS加自旋，一种乐观锁的方式来实现，从而保证了并发性。从HashMap 到 HashTable 再到 ConcurrentHashMap的转变真让我回味良久，从里面数据结构的设计到并发的处理真是妙不可言。学习Java的朋友应该知道这可以从放腾飞中的《并发编程的艺术》中了解到，初学者看可能会晕，我第一次看了一小部分后是拒绝的，因为看得想吐，心里在咒骂这他妈都写的什么鬼，哈哈！再后来慢慢看就有所体会了，而且有些地方还要反复琢磨。从这本书可以了解到很多并发编程的底层实现，极力推荐！！！<br>         &emsp;&emsp;所以我也并不推荐自己去实现一个线程安全的Dictionary，因为里边涉及到太多的细节不是我们所能预料的，除非自己真的非常熟悉底层的实现，对并发编程了然于胸。看过.Net中的 Dictionary实现后会发现它与HashMap的实现大体无异，虽然没有看过.Net中ConcurrentDictionary的实现，但是个人感觉他们的实现大体上应该相差无几。所以可以考虑使用ConcurrentDictionary来替换老总ConnPool的内部实现，这部分代码就不贴了。</p>
+<h6 id="2-非托管资源的释放"><a href="#2-非托管资源的释放" class="headerlink" title="2 非托管资源的释放"></a><strong>2 非托管资源的释放</strong></h6><p> &emsp; &emsp;对于非托管资源的释放我建议是使用继承接口IDisposable来实现其Dispose()方法，具体请参考.Net圣经 -《CLR via C# 第4版 》。<br>  &emsp; &emsp;</p>
+<p>####<strong>改进</strong><br>&emsp;&emsp; 虽然老总的实现能抽离的底层的实现，但是还不够优雅，因为在代码的最后都要去手动实现事务的提交和回滚。那有没有更好的办法来实现不用手动提交和回滚呢，就像Spring中事务，只需要在方法中加注解就可以达到指定功能。当然初期先来一个简单的实现。.Net中的Attribute对应的就是Java中的注解，但是这个Attribute还必须具备Aop的功能。这样才可以在方法执行前开启一个事务，方法执行完成后提交或回滚事务。</p>
+<h5 id="1-Aop"><a href="#1-Aop" class="headerlink" title="1. Aop"></a><strong>1. Aop</strong></h5><p>&emsp;&emsp; 一般使用的较多的是Autofac和Castle，当然还可以使用Remoting代理方式或者从ContextBoundObject中派生来实现。刚好找到一篇文章说到了<a href="https://ayende.com/blog/2615/7-approaches-for-aop-in-net" target="_blank" rel="noopener">.net实现Aop的七种方式</a>。</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">Approach</th>
+<th style="text-align:right">Advantages</th>
+<th style="text-align:center">Disadvantages</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">Remoting Proxies</td>
+<td style="text-align:right">Easy to implement, because of the .Net framework support</td>
+<td style="text-align:center">Somewhat heavyweight  Can only be used on interfaces or MarshalByRefObjects</td>
+</tr>
+<tr>
+<td style="text-align:left">Derivingfrom ContextBoundObject</td>
+<td style="text-align:right">Easiest to implement Native support for call interception</td>
+<td style="text-align:center">Very costly in terms of performance</td>
+</tr>
+<tr>
+<td style="text-align:left">Compile-time subclassing ( Rhino Proxy )</td>
+<td style="text-align:right">Easiest to understand</td>
+<td style="text-align:center">Interfaces or virtual methods only</td>
+</tr>
+<tr>
+<td style="text-align:left">Runtime subclassing ( Castle Dynamic Proxy )</td>
+<td style="text-align:right">Easiest to understand Very flexible</td>
+<td style="text-align:center">Complex implementation (but alreadyexists) Interfaces or virtual methods only</td>
+</tr>
+<tr>
+<td style="text-align:left">Hooking into the profiler API ( Type Mock )</td>
+<td style="text-align:right">Extremely powerful</td>
+<td style="text-align:center">Performance? Complex implementation (COM API, require separate runner, etc)</td>
+</tr>
+<tr>
+<td style="text-align:left">Compile time IL-weaving ( Post Sharp / Cecil )</td>
+<td style="text-align:right">Very powerful Good performance</td>
+<td style="text-align:center">Very hard to implement</td>
+</tr>
+<tr>
+<td style="text-align:left">Runtime IL-weaving ( Post Sharp / Cecil )</td>
+<td style="text-align:right">Very powerful Good performance</td>
+<td style="text-align:center">Very hard to implement</td>
+</tr>
+</tbody>
+</table>
+<p>当然这只是前人做的一个总结，具体的性能及优缺点还需要自己去考量。<br>编译时AOP工具有：PostSharp、LinFu、SheepAspect、Fody、CIL操作工具。<br>运行时AOP工具：Castle Windsor/DynamicProxy、StructureMap、Unity、Spring.NET。<br>&emsp;&emsp; 我用得比较多的是运行时Aop，比如Castle、Autofac.他们都是使用动态代理的方式来实现。来看看Castle是怎么实现的<br><figure class="highlight cs"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br></pre></td><td class="code"><pre><span class="line"> <span class="keyword">using</span> Castle.DynamicProxy;</span><br><span class="line"> <span class="keyword">using</span> System;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">class</span> <span class="title">Program</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">Main</span>(<span class="params"><span class="keyword">string</span>[] args</span>)</span></span><br><span class="line"><span class="function"></span>    &#123;</span><br><span class="line">        ProxyGenerator generator = <span class="keyword">new</span> ProxyGenerator();</span><br><span class="line">        SimpleInterceptor interceptor = <span class="keyword">new</span> SimpleInterceptor();</span><br><span class="line"> </span><br><span class="line">        Person person = generator.CreateClassProxy&lt;Person&gt;(interceptor);</span><br><span class="line">        person.SayHello();</span><br><span class="line"></span><br><span class="line">        Console.Read();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title">Person</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">virtual</span> <span class="keyword">void</span> <span class="title">SayHello</span>(<span class="params"></span>)</span></span><br><span class="line"><span class="function"></span>    &#123;</span><br><span class="line">        Console.WriteLine(<span class="string">"hello world."</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">virtual</span> <span class="keyword">void</span> <span class="title">SayName</span>(<span class="params"><span class="keyword">string</span> hometown</span>)</span></span><br><span class="line"><span class="function"></span>    &#123;</span><br><span class="line">        Console.WriteLine(<span class="string">"I'm Lynch, I'm from &#123;0&#125;."</span>, hometown);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">SayOther</span>(<span class="params"></span>)</span></span><br><span class="line"><span class="function"></span>    &#123;</span><br><span class="line">        Console.WriteLine(<span class="string">"Yeah, I'm Chinese."</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title">SimpleInterceptor</span> : <span class="title">StandardInterceptor</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="function"><span class="keyword">protected</span> <span class="keyword">override</span> <span class="keyword">void</span> <span class="title">PreProceed</span>(<span class="params">IInvocation invocation</span>)</span></span><br><span class="line"><span class="function"></span>    &#123;</span><br><span class="line">        Console.WriteLine(<span class="string">"before invocation , method : &#123;0&#125;."</span>, invocation.Method.Name);</span><br><span class="line">        <span class="keyword">base</span>.PreProceed(invocation);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">protected</span> <span class="keyword">override</span> <span class="keyword">void</span> <span class="title">PerformProceed</span>(<span class="params">IInvocation invocation</span>)</span></span><br><span class="line"><span class="function"></span>    &#123;</span><br><span class="line">        Console.WriteLine(<span class="string">"before performing ..."</span>);</span><br><span class="line">        <span class="keyword">base</span>.PerformProceed(invocation);</span><br><span class="line">        Console.WriteLine(<span class="string">"after performing..."</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">protected</span> <span class="keyword">override</span> <span class="keyword">void</span> <span class="title">PostProceed</span>(<span class="params">IInvocation invocation</span>)</span></span><br><span class="line"><span class="function"></span>    &#123;</span><br><span class="line">        Console.WriteLine(<span class="string">"after invacation , method : &#123;0&#125;."</span>, invocation.Method.Name);</span><br><span class="line">        <span class="keyword">base</span>.PostProceed(invocation);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>动态代理的方式有个不好的地方就是每次都要生成指定类型的代理类，要实现Aop的方法还必须是virtual方法. 如果有很多类很多方法需要拦截那增加和改动的代码就有点多。我想达到的目标是只要一个Attribute类，不需要生成指定类型的代理类，让代码看起来更加的干净。一直以来我只知道有运行时Aop，就没有想到编译时Aop，比如postsharp。然后就找到了Mono.Cecil ，通过改写中间IL代码的方式来实现，大体思路是</p>
+<ol>
+<li>找到标记有指定AopAttribute的方法</li>
+<li>复制该方法并生成一个新的方法copy_method，复制完成后清楚原有方法</li>
+<li>改写原有方法，首先调用AopAttribute的OnStart方法，接着调用copy_method ，调用AopAttribute的OnSuccess方法，最后调用AopAttribute的OnEnd方法</li>
+</ol>
+<blockquote>
+<p>postsharp 1.5 使用注意事项，.net Framework 必须是3.5版本，需要在csproj中增加以下内容<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"> &lt;PropertyGroup&gt;</span><br><span class="line">   &lt;PostSharpUseCommandLine&gt;True&lt;/PostSharpUseCommandLine&gt;</span><br><span class="line">   &lt;DontImportPostSharp&gt;True&lt;/DontImportPostSharp&gt;</span><br><span class="line">   &lt;PostSharpDirectory&gt;libs&lt;/PostSharpDirectory&gt;</span><br><span class="line"> &lt;/PropertyGroup&gt;</span><br><span class="line"> </span><br><span class="line">&lt;Import Project=&quot;$(PostSharpDirectory)\PostSharp-1.5.targets&quot; /&gt;</span><br></pre></td></tr></table></figure></p>
+</blockquote>
+<h5 id="2-IL"><a href="#2-IL" class="headerlink" title="2. IL "></a><strong>2. IL </strong></h5><p>&emsp;&emsp;说到IL指令就要先知道什么是evaluation stack。而这个evaluation stack却不同于我们平时理解的Call Stack（调用栈），即在调用一个方法时首先会将所有参数压栈，压栈完成后调用指定方法，方法执行完成清理刚刚入栈的参数。我写这个IL指令的时候我也纳闷了，我就在想我大学的时候用Intel x86汇编自己实现小型操作系统的时候也没有遇到这个东西啊，说到栈就Call Stack，这evaluation stack（以下简称EStack）他妈是什么鬼。后来向朋友了解了一下才知道这个是CIL特有的东西，这个是个寄存器，即<code>Stack&lt; Register &gt;</code> 。这样就说通了，我忘了操作结果的存放，学过汇编或了解一些底层的同学应该了解，汇编语言的操作结果都是存放的寄存器中，如32位的ax , bx，64位 eax、ebx等通用寄存器。而不同的CPU又有不同的指令集，如PC机使用的是x86复杂指令集，而Arm使用的是Arm的精简指令集，而CLR直接将兼容不同的寄存器的工作交给使用者处理的话那使用者势必想疯掉，所以VM做一个通用的寄存器来存放操作结果，至于该使用哪个寄存器来存放使用者不需要关心。<br> &emsp;&emsp;至于为什么设计成栈的结构，个人理解一个是栈有内存限制，我们一般使用到的临时变量局部变量或者方法参数都不会太多，当然也可能很多，太多参数的话就该考虑封装了。二个我觉得更重要的是它非常符合调用方法前将参数出入Call Stack的操作，例如我们来执行一下伪代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">int a = 123;</span><br><span class="line">Service service = new Service(&quot;lynch&quot;);</span><br><span class="line">var b = service.GetNumber();</span><br><span class="line">var result = service.Add(a,b);</span><br></pre></td></tr></table></figure>
+<p>在执行Add方法前会先调用GetNumber来获取b的值，整个代码的执行指令是</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">IL_0001:  ldc.i4.s  123   将123赋值给寄存器即放到EStack中 </span><br><span class="line">IL_0003:  stloc.0         将EStack中索引为0的值出栈，并将出栈的值push到Call Stack作为Add方法的入参</span><br></pre></td></tr></table></figure>
+<p>限于篇幅剩下的IL代码就不贴了，从第二行的st前缀指令大家应该可以发现 : 这个指令包含了两个操作，一个从EStack出栈，二个将出栈的值入栈Call Stack。EStack是通过ld入栈而st出栈，就是说使用到某个参数的时候就将其从EStack出栈，而无需再占用栈空间，也就释放了栈内存，是不是有点像Call Stack的操作。个人一些见解，不足之处还望指正。</p>
+<p>&emsp;&emsp;在IL指令中我们会频繁用到如ld ( load )、st(store)等前缀指令，ld前缀指令的意思就是将寄存器的值压栈，也就是将EStack中的值push到Call Stack，而st前缀指令就是将Call Stack中的操作结果存放到寄存器EStack中。大家可以通过这篇文章做个基本了解</p>
+<ul>
+<li><a href="https://www.codeproject.com/Articles/362076/Understanding-Common-Intermediate-Language-CIL" target="_blank" rel="noopener">Understanding Common Intermediate Language (CIL)</a></li>
+</ul>
+<p>如果想深入了解的可以看《Inside Microsoft .NET IL Assembler》，中文版是《Microsoft.NET IL汇编语言程序设计》，不过中文版已经绝版，网上可以找到很多影印版pdf。</p>
+<h5 id="3-Aop的实现"><a href="#3-Aop的实现" class="headerlink" title="3. Aop的实现"></a><strong>3. Aop的实现</strong></h5><p>&emsp;&emsp;这个应该算是postsharp的简单实现，源码放在了Github <a href="https://github.com/linkypi/LexoAop" target="_blank" rel="noopener">LeoxAop</a>上。代码我就不贴了，很多地方都有注释，而且逻辑还算清晰。这里的实现部分参考了<a href="http://www.cnblogs.com/whitewolf/archive/2011/08/09/2132217.html" target="_blank" rel="noopener">MSBuild + MSILInect实现编译时AOP之预览</a>这位博主的实现，不过他写的应该过于匆忙，所以代码结构有些凌乱，不太容易看懂，还用了很多的linq。<br>&emsp;&emsp;这里有一个待解决的问题是将代码注入到指定项目exe或dll后怎么让VS调试到指定的AopAttribute代码，也就是说怎么生成对应的pdb文件让VS感知到。就像.net reflector 一样，反编译dll后自动生成对应的pdb文件，然后就可以顺利的调试。我目前想到的较为简单的方法是在开发者命令中使用ildasm 将文件反编译为il代码，然后再使用ilasm生成对应的pdb文件 :<br><figure class="highlight cmd"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ildasm test.exe /out=test.il</span><br><span class="line">ilasm test.il /pdb</span><br></pre></td></tr></table></figure></p>
+<p>不过我试过发现并没有起作用，哪位朋友知道的麻烦告诉我一下，万分感激。就因为这个也花了不少时间，搜google搜codeproject都没有找到相关的文章，实在没办法先搁放在这里，太过纠结容易崩溃。本以为很快能结篇，还不料涉及的东西有点多，写代码调试解决遇到的bug也花不少时间。这里是.net 的实现，其实java也可以这么实现，只是要了解java的字节码，有时间再写吧。</p>
+<p>扩展阅读</p>
+<ul>
+<li><a href="https://www.zhihu.com/question/35777031" target="_blank" rel="noopener">栈式虚拟机和寄存器式虚拟机？</a><h5 id="4-Transaction-实现"><a href="#4-Transaction-实现" class="headerlink" title="4. Transaction 实现"></a><strong>4. Transaction 实现</strong></h5>&emsp;&emsp;终于写到了这了，迫不及待啊。感叹时间飞快。写完这个接下来我想看的东西就是node里边Promise和Async的实现。既然Aop功能已经实现，那我们就可以在OnStart方法开始一个事务，在OnSuccess和OnException提交或回滚事务，但是这里还有几个问题需要考虑：</li>
+</ul>
+<ol>
+<li>就是如果使用者的在自身业务代码就已经做了异常捕获该如何处理，是该回滚还是该提交，这个还没想出来好的解决办法。</li>
+<li>如果有部分连接未能及时释放又该如何处理，对于这个问题可以考虑启动一个线程来监控，根据连接开始创建的时间来做判断。</li>
+<li>底层dao操作需要用到当前连接创建的SqlCommand，要获取到这个那就需要记录连接Id，问题是这个Id只有在相应Aop的On事件时才能拿到。还有没有其他办法呢，因为每个线程执行时用的连接Id都不一样所以我想到一个办法就是将这个变量放到ThreadLocal中，线程跑到哪里它就跟到哪，每个线程都维持着自己的连接Id。如果这个问题不解决那设计这一整个抽象事务就没用了。可能应该还有更好的办法，还没来得及去看Spring中实现，如果有朋友想到更好的办法麻烦告诉我一声，感激不尽！</li>
+<li>连接Id如何保证唯一性。当前我使用的是guid生成，只是一个临时的策略。考虑到分布式架构的话这种生成方式就不太好管理，也不稳妥。我比较喜欢 Twitter 分布式自增Id的实现snowflake，说喜欢是因为它的实现粒度很细，但是没有考虑到它强依赖机器时钟，如果机器上时钟回拨，会导致发号重复或者服务会处于不可用状态。当然也可以参考MongoDb中ObjectId 的生成方式。后来有幸看到朋友转发的一篇文章，里面有说到唯一Id的多种生成方式，还介绍了snowflake及ObjectId的优缺点，最后讲到一种新的生成算法Leaf，大家可以了解下<br><a href="http://mp.weixin.qq.com/s/mY6ulc62pP77Iyl3CiK3dw" target="_blank" rel="noopener">Leaf——来自美团点评的分布式ID生成系统</a><br>&emsp;&emsp;当然如果是分布式架构那没这么简单了，需要考虑分布式事务，涉及两阶段三阶段提交、分布式一致性算法 paxos。不过现在更多的应该考虑放弃强一致性的分布式事务而使用最终一致性。如eBay的实现，在设计上就不采用分布式事务，而是通过其它途径来解决数据一致性问题。其中使用的最重要的技术就是消息队列和消息应用状态表。至于阿里和京东怎么实现就没有深入了解过。eBay 实现参考 :</li>
+</ol>
+<ul>
+<li><a href="http://queue.acm.org/detail.cfm?id=1394128" target="_blank" rel="noopener">Base: An Acid Alternative</a></li>
+</ul>
+<p>最后 Transaction 的实现请参见 <a href="https://github.com/linkypi/Leox.Transaction" target="_blank" rel="noopener">Leox.Transaction</a></p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/Nodejs/js-lambda/" rel="next" title="Javascript Lambda的简单实现">
+                <i class="fa fa-chevron-left"></i> Javascript Lambda的简单实现
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/Nodejs/async-series/" rel="prev" title="Async 库之 series 源码分析">
+                Async 库之 series 源码分析 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar.jpg" alt="Leo Lin">
+            
+              <p class="site-author-name" itemprop="name">Leo Lin</p>
+              <div class="site-description motion-element" itemprop="description">热衷于研究底层技术</div>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">5</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  
+                    
+                      <a href="/categories/">
+                    
+                  
+                    
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">2</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  
+                    
+                    
+                      
+                    
+                    <span class="site-state-item-count">1</span>
+                    <span class="site-state-item-name">标签</span>
+                  
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/linkypi" title="GitHub &rarr; https://github.com/linkypi" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="mailto:trouble.linky@gmail.com" title="E-Mail &rarr; mailto:trouble.linky@gmail.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+                </span>
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://weibo.com/2050815965" title="Weibo &rarr; https://weibo.com/2050815965" rel="noopener" target="_blank"><i class="fa fa-fw fa-weibo"></i>Weibo</a>
+                </span>
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="http://blog.163.com/xuanmingzhiyou@yeah" title="NetEase &rarr; http://blog.163.com/xuanmingzhiyou@yeah" rel="noopener" target="_blank"><i class="fa fa-fw fa-NetEase"></i>NetEase</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-block">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                友情链接
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.ezlippi.com" title="http://www.ezlippi.com" rel="noopener" target="_blank">Ezlippi</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-4"><a class="nav-link" href="#Boss的实现"><span class="nav-number">1.</span> <span class="nav-text">Boss的实现</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#问题来了"><span class="nav-number">2.</span> <span class="nav-text">问题来了</span></a><ol class="nav-child"><li class="nav-item nav-level-6"><a class="nav-link" href="#1-并发字典的实现"><span class="nav-number">2.0.1.</span> <span class="nav-text">1 并发字典的实现</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#2-非托管资源的释放"><span class="nav-number">2.0.2.</span> <span class="nav-text">2 非托管资源的释放</span></a></li></ol></li><li class="nav-item nav-level-5"><a class="nav-link" href="#1-Aop"><span class="nav-number">2.1.</span> <span class="nav-text">1. Aop</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-IL"><span class="nav-number">2.2.</span> <span class="nav-text">2. IL </span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-Aop的实现"><span class="nav-number">2.3.</span> <span class="nav-text">3. Aop的实现</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#4-Transaction-实现"><span class="nav-number">2.4.</span> <span class="nav-text">4. Transaction 实现</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+  
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Leo Lin</span>
+
+  
+
+  
+</div>
+
+
+
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v7.1.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/utils.js?v=7.1.0"></script>
+
+  <script src="/js/motion.js?v=7.1.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/affix.js?v=7.1.0"></script>
+
+  <script src="/js/schemes/pisces.js?v=7.1.0"></script>
+
+
+
+  
+  <script src="/js/scrollspy.js?v=7.1.0"></script>
+<script src="/js/post-details.js?v=7.1.0"></script>
+
+
+
+  
+
+
+  <script src="/js/next-boot.js?v=7.1.0"></script>
+
+
+  
+
+  
+
+  
+
+  
+  
+
+<script src="//cdn1.lncld.net/static/js/3.11.1/av-min.js"></script>
+
+
+
+<script src="//unpkg.com/valine/dist/Valine.min.js"></script>
+
+<script>
+  var GUEST = ['nick', 'mail', 'link'];
+  var guest = 'nick,mail,link';
+  guest = guest.split(',').filter(function(item) {
+    return GUEST.indexOf(item) > -1;
+  });
+  new Valine({
+    el: '#comments',
+    verify: false,
+    notify: false,
+    appId: 'cCKXYMtu0dcm3DMf0tP3aFsY-gzGzoHsz',
+    appKey: 'rJEHNvkinQYPhYqE35vdYrfl',
+    placeholder: 'Just go go',
+    avatar: 'mm',
+    meta: guest,
+    pageSize: '10' || 10,
+    visitor: false,
+    lang: 'zh-cn' || 'zh-cn'
+  });
+</script>
+
+
+
+
+  
+
+
+  
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
